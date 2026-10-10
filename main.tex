@@ -1,0 +1,190 @@
+\documentclass[aspectratio=169,11pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T5]{fontenc}
+\usepackage{lmodern}
+\usepackage[vietnamese]{babel}
+\usepackage{amsmath,amssymb,booktabs,array}
+
+\definecolor{mainblue}{RGB}{26,67,108}
+\definecolor{accent}{RGB}{38,123,138}
+\definecolor{softgray}{RGB}{242,245,247}
+
+\usetheme{Madrid}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+\setbeamercolor{structure}{fg=mainblue}
+\setbeamercolor{frametitle}{fg=white,bg=mainblue}
+\setbeamerfont{frametitle}{series=\bfseries}
+\setbeamercolor{title}{fg=white}
+\setbeamercolor{subtitle}{fg=white}
+\setbeamercolor{alerted text}{fg=accent}
+\setbeamercolor{block title}{fg=white,bg=mainblue}
+\setbeamercolor{block body}{bg=softgray,fg=black}
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.20}
+
+\title{Phương pháp phân hoạch trong phân cụm}
+\subtitle{K Means, K Medoids PAM và CLARA}
+\author{Nhóm CS313}
+\institute{Khai thác dữ liệu và ứng dụng}
+\date{Tháng 10 năm 2026}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Bài toán phân hoạch}
+\begin{itemize}
+  \item Với dữ liệu chưa gán nhãn $X$, partitioning chia dữ liệu thành $k$ cụm không rỗng $C_1, \ldots, C_k$.
+  \item Mỗi quan sát thuộc đúng một cụm trong \emph{hard partitioning}.
+  \item Các thuật toán bắt đầu từ một phân chia ban đầu, sau đó lặp để cải thiện một hàm mục tiêu.
+\end{itemize}
+\vspace{0.4em}
+\begin{block}{Câu hỏi trung tâm}
+Làm thế nào để các đối tượng trong cùng cụm gần nhau hơn so với các đối tượng thuộc các cụm khác?
+\end{block}
+\end{frame}
+
+\begin{frame}{Từ clustering đến quyết định}
+\begin{enumerate}
+  \item Chuẩn bị feature: xử lý thiếu dữ liệu, kiểm tra outlier và chuẩn hóa thang đo khi cần.
+  \item Chạy thuật toán với số cụm $k$ và lưu nhãn cụm cho từng quan sát.
+  \item Profile từng cụm bằng các biến gốc để hiểu đặc điểm đại diện.
+  \item Biến profile thành hành động phù hợp với bài toán.
+\end{enumerate}
+\vspace{0.5em}
+Ví dụ với khách hàng, RFM gồm lần mua gần nhất, tần suất mua và giá trị chi tiêu. Các cụm có thể hỗ trợ phân biệt nhóm giá trị cao, nhóm mới và nhóm giảm tương tác.
+\end{frame}
+
+\begin{frame}{K Means và hàm mục tiêu WCSS}
+K Means biểu diễn mỗi cụm bằng một \alert{centroid} $\mu_i$, là trung bình của các điểm trong cụm. Centroid có thể không trùng với một quan sát thật.
+\[
+\mathcal{J} = \sum_{i=1}^{k}\sum_{x \in C_i} \lVert x-\mu_i \rVert^2
+\]
+\begin{enumerate}
+  \item Khởi tạo $k$ centroid.
+  \item Gán mỗi điểm cho centroid gần nhất.
+  \item Cập nhật centroid bằng trung bình của các điểm được gán, rồi lặp đến khi hội tụ.
+\end{enumerate}
+\end{frame}
+
+\begin{frame}{K Means trong thực tế}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\textbf{Phù hợp}
+\begin{itemize}
+  \item Feature chủ yếu là số
+  \item Có thể chuẩn hóa scale
+  \item Cần baseline nhanh cho dữ liệu lớn
+  \item Cụm khá gọn theo khoảng cách Euclidean
+\end{itemize}
+\column{0.48\textwidth}
+\textbf{Cần cẩn thận}
+\begin{itemize}
+  \item Outlier có thể kéo centroid
+  \item Kết quả phụ thuộc khởi tạo
+  \item $k$ chưa chắc đã rõ từ đầu
+  \item Hình dạng cụm phức tạp có thể gây phân chia kém
+\end{itemize}
+\end{columns}
+\vspace{0.6em}
+Một thực hành cần thiết là chạy nhiều seed và so sánh độ ổn định của kết quả.
+\end{frame}
+
+\begin{frame}{K Medoids và PAM}
+K Medoids thay centroid bằng \alert{medoid}, một quan sát thật đại diện cho cụm.
+\[
+m_i = \arg\min_{m\in C_i}\sum_{x\in C_i} d(x,m)
+\]
+Trong đó $d(x,m)$ là độ không tương đồng phù hợp với dữ liệu. Nó không mặc định chỉ là khoảng cách L1.
+\begin{itemize}
+  \item \textbf{BUILD}: chọn các medoid ban đầu.
+  \item \textbf{ASSIGN}: gán mỗi đối tượng vào medoid gần nhất.
+  \item \textbf{SWAP}: thử đổi medoid với non medoid và giữ cấu hình có chi phí thấp hơn.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{CLARA cho tập dữ liệu lớn}
+CLARA giữ ý tưởng medoid nhưng không tìm kiếm trực tiếp trên toàn bộ tập dữ liệu.
+\begin{enumerate}
+  \item Lấy nhiều mẫu ngẫu nhiên từ dữ liệu gốc.
+  \item Chạy PAM trên từng mẫu để tìm các medoid ứng viên.
+  \item Gán toàn bộ dữ liệu gốc vào medoid gần nhất.
+  \item Tính chi phí trên toàn bộ dữ liệu và giữ cấu hình tốt nhất.
+\end{enumerate}
+\vspace{0.5em}
+CLARA giảm chi phí tìm kiếm so với PAM trên toàn bộ dữ liệu. Chất lượng kết quả vẫn phụ thuộc mức độ đại diện của các mẫu.
+\end{frame}
+
+\begin{frame}{So sánh ba phương pháp}
+\centering
+\small
+\begin{tabular}{p{0.22\textwidth}p{0.22\textwidth}p{0.24\textwidth}p{0.23\textwidth}}
+\toprule
+\textbf{Tiêu chí} & \textbf{K Means} & \textbf{K Medoids PAM} & \textbf{CLARA}\\
+\midrule
+Đại diện & Centroid trung bình & Medoid là quan sát thật & Medoid là quan sát thật\\
+Outlier & Nhạy hơn & Ít bị ảnh hưởng hơn & Thừa hưởng ưu điểm medoid\\
+Quy mô & Tốt với dữ liệu lớn & Chi phí cao khi $n$ tăng & Tốt hơn nhờ sampling\\
+Giới hạn chính & Khởi tạo, scale, hình dạng cụm & Thời gian và bộ nhớ & Sampling bias\\
+\bottomrule
+\end{tabular}
+\normalsize
+\end{frame}
+
+\begin{frame}{Chọn số cụm và kiểm tra chất lượng}
+\begin{itemize}
+  \item \textbf{Elbow}: theo dõi WCSS khi tăng $k$ và tìm điểm lợi ích giảm chậm.
+  \item \textbf{Silhouette}: so sánh độ gần trong cụm với độ tách khỏi cụm khác. Giá trị gần 1 thường tốt hơn.
+  \item \textbf{Stability}: thay seed hoặc thay đổi nhẹ dữ liệu. Kết quả tốt không nên đổi quá mạnh.
+\end{itemize}
+\vspace{0.4em}
+Không nên chọn $k$ chỉ từ một biểu đồ. Cần kết hợp chỉ số, kiến thức domain và khả năng diễn giải cluster profile.
+\end{frame}
+
+\begin{frame}{Một số mở rộng}
+\begin{columns}[T]
+\column{0.48\textwidth}
+\textbf{Kernel K Means}
+\begin{itemize}
+  \item Dùng kernel trick để biểu diễn quan hệ phi tuyến.
+  \item Hữu ích khi cụm có cấu trúc vòng hoặc hình dạng phức tạp.
+  \item Cần chọn kernel và tham số cẩn thận.
+\end{itemize}
+\column{0.48\textwidth}
+\textbf{K Prototypes}
+\begin{itemize}
+  \item Dành cho dữ liệu hỗn hợp số và phân loại.
+  \item Kết hợp khoảng cách cho biến số với độ khác biệt cho biến phân loại.
+  \item Phù hợp khi dataset không thuần numeric.
+\end{itemize}
+\end{columns}
+\vspace{0.5em}
+Các mở rộng này nên đặt sau phần cốt lõi hoặc để ở phụ lục nếu thời lượng ngắn.
+\end{frame}
+
+\begin{frame}{Kết luận}
+\begin{itemize}
+  \item Dùng K Means khi feature số đã được chuẩn hóa và cần một phương án nhanh.
+  \item Dùng K Medoids PAM khi outlier quan trọng hoặc cần quan sát thật làm đại diện.
+  \item Dùng CLARA khi vẫn cần medoid nhưng dữ liệu quá lớn cho PAM trực tiếp.
+\end{itemize}
+\vspace{0.6em}
+\begin{block}{Điểm cần nhớ}
+Chất lượng clustering phụ thuộc vào feature, khoảng cách, cách chọn $k$ và kiểm tra kết quả, không chỉ phụ thuộc tên thuật toán.
+\end{block}
+\end{frame}
+
+\begin{frame}{Tài liệu tham khảo}
+\small
+\begin{thebibliography}{9}
+\bibitem{han} Jiawei Han, Micheline Kamber, and Jian Pei. \textit{Data Mining Concepts and Techniques}. 3rd edition, 2012.
+\bibitem{kaufman} Leonard Kaufman and Peter J. Rousseeuw. \textit{Finding Groups in Data}. Wiley, 1990.
+\bibitem{dhanachandra} N. Dhanachandra, K. Manglem, and Y. Chanu. Image Segmentation using K Means Clustering Algorithm and Subtractive Clustering Algorithm. \textit{Procedia Computer Science}, 2015.
+\bibitem{arora} P. Arora, D. Deepali, and S. Varshney. Analysis of K Means and K Medoids Algorithm for Big Data. \textit{Procedia Computer Science}, 2016.
+\end{thebibliography}
+\end{frame}
+
+\end{document}
